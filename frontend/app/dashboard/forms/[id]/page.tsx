@@ -10,7 +10,7 @@ import { SubmissionTable } from '@/components/submissions/SubmissionTable';
 import { useAuth } from '@/context/AuthContext';
 import type { FormSchema, Submission } from '@/types/index';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function getAuthToken(): string | null {
     if (typeof window === 'undefined') return null;

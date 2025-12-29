@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { FormRenderer } from '@/components/forms/FormRenderer';
 import type { FormSchema } from '@/types/index';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function getAuthToken(): string | null {
     if (typeof window === 'undefined') return null;

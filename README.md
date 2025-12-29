@@ -80,7 +80,3 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api
     ├── context/         # Auth context
     └── types/           # TypeScript types
 ```
-
-## License
-
-MIT

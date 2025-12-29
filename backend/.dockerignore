@@ -1,0 +1,36 @@
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Dependencies
+node_modules
+package-lock.json
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Generated
+generated/
+prisma/migrations/
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Test
+coverage/
+.nyc_output/

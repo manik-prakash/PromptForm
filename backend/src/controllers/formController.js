@@ -26,6 +26,9 @@ export async function generateSchema(req, res, next) {
             },
         });
     } catch (error) {
+        if (error.code === 'LLM_UNAVAILABLE') {
+            return next(new AppError(error.message, 503));
+        }
         next(error);
     }
 }

@@ -38,7 +38,12 @@ const MODELS = [
   "google/gemma-4-31b-it:free",
   "z-ai/glm-5.2:free",
   "minimax/minimax-m3:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 ];
+
+const DEFAULT_RETRY_SECONDS = 3;
+const MAX_RETRY_SECONDS = 5;
 
 async function callModel(model, prompt) {
   const response = await openrouter.chat.send({
@@ -61,7 +66,20 @@ async function callModel(model, prompt) {
   return JSON.parse(jsonContent);
 }
 
-export async function generateFormSchema(prompt) {
+// OpenRouter's 429 responses include a suggested retry delay in the error body.
+function getRetryAfterSeconds(error) {
+  try {
+    const body = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
+    const seconds = body?.error?.metadata?.retry_after_seconds;
+    return typeof seconds === 'number' ? seconds : null;
+  } catch {
+    return null;
+  }
+}
+
+async function attemptModels(prompt) {
+  let retryAfterSeconds = DEFAULT_RETRY_SECONDS;
+
   for (const model of MODELS) {
     try {
       const schema = await callModel(model, prompt);
@@ -69,11 +87,32 @@ export async function generateFormSchema(prompt) {
       if (!schema.id) {
         schema.id = `schema-${Date.now()}`;
       }
-      return schema;
+      return { schema };
     } catch (error) {
-      console.error(`LLM Error (${model}):`, error);
+      console.error(`LLM Error (${model}):`, error.message || error);
+      const suggested = getRetryAfterSeconds(error);
+      if (suggested) {
+        retryAfterSeconds = Math.max(retryAfterSeconds, suggested);
+      }
     }
   }
 
-  throw new Error('Failed to generate form schema');
+  return { schema: null, retryAfterSeconds };
+}
+
+export async function generateFormSchema(prompt) {
+  let attempt = await attemptModels(prompt);
+  if (attempt.schema) return attempt.schema;
+
+  // Every model was busy on the first pass — wait the upstream-suggested delay
+  // (capped) and try the whole list once more before giving up.
+  const waitMs = Math.min(attempt.retryAfterSeconds, MAX_RETRY_SECONDS) * 1000;
+  await new Promise(resolve => setTimeout(resolve, waitMs));
+
+  attempt = await attemptModels(prompt);
+  if (attempt.schema) return attempt.schema;
+
+  const error = new Error('All free AI models are currently busy. Please try again in a minute.');
+  error.code = 'LLM_UNAVAILABLE';
+  throw error;
 }

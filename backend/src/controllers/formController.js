@@ -1,6 +1,7 @@
 import prisma from '../utils/db.js';
 import { generateFormSchema } from '../services/llmService.js';
 import { AppError } from '../middleware/errorMiddleware.js';
+import { formSchemaSchema } from '../utils/types.js';
 
 // Generate schema from prompt (preview only, no save)
 export async function generateSchema(req, res, next) {
@@ -11,12 +12,17 @@ export async function generateSchema(req, res, next) {
             throw new AppError('Prompt is required', 400);
         }
 
-        const schema = await generateFormSchema(prompt);
+        const rawSchema = await generateFormSchema(prompt);
+
+        const result = formSchemaSchema.safeParse(rawSchema);
+        if (!result.success) {
+            throw new AppError('AI generated an invalid form schema, please try again', 502);
+        }
 
         res.json({
             success: true,
             data: {
-                schema,
+                schema: result.data,
             },
         });
     } catch (error) {
@@ -34,10 +40,15 @@ export async function createForm(req, res, next) {
             throw new AppError('Title and schema are required', 400);
         }
 
+        const result = formSchemaSchema.safeParse(schema);
+        if (!result.success) {
+            throw new AppError('Invalid form schema', 400);
+        }
+
         const form = await prisma.form.create({
             data: {
                 title: title,
-                schema: schema,
+                schema: result.data,
                 userId: userId,
             },
         });

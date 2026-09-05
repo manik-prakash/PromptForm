@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { FormRenderer } from '@/components/forms/FormRenderer';
+import { FieldEditor } from '@/components/forms/FieldEditor';
 import type { FormSchema } from '@/types/index';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -168,6 +169,21 @@ export default function CreateFormPage() {
                             </Button>
                         </CardBody>
                     </Card>
+
+                    {/* Field Editor */}
+                    {generatedSchema && (
+                        <Card>
+                            <CardHeader>
+                                <h2 className="font-medium text-text">Edit Fields</h2>
+                            </CardHeader>
+                            <CardBody>
+                                <FieldEditor
+                                    schema={generatedSchema}
+                                    onChange={setGeneratedSchema}
+                                />
+                            </CardBody>
+                        </Card>
+                    )}
 
                     {/* Save Form */}
                     {generatedSchema && (

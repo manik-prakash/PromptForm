@@ -174,12 +174,34 @@ export async function getSubmissions(req, res, next) {
     }
 }
 
+function csvEscape(value) {
+    const str = value === undefined || value === null ? '' : String(value);
+    if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+}
+
+function toCsv(form, submissions) {
+    const fieldIds = form.schema.fields.map(f => f.id);
+    const headerLabels = form.schema.fields.map(f => f.label || f.id);
+
+    const headerRow = ['Submitted At', ...headerLabels].map(csvEscape).join(',');
+    const dataRows = submissions.map(submission => {
+        const row = [submission.createdAt.toISOString(), ...fieldIds.map(id => submission.data?.[id])];
+        return row.map(csvEscape).join(',');
+    });
+
+    return [headerRow, ...dataRows].join('\n');
+}
+
 /**
- * Export all submissions as JSON
+ * Export all submissions as JSON or CSV (?format=csv)
  */
 export async function exportSubmissions(req, res, next) {
     try {
         const { id } = req.params;
+        const { format } = req.query;
         const userId = req.user.id;
 
         // Verify form ownership
@@ -213,9 +235,17 @@ export async function exportSubmissions(req, res, next) {
             },
         });
 
+        const safeFilename = form.title.replace(/[^a-z0-9]/gi, '_');
+
+        if (format === 'csv') {
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}_submissions.csv"`);
+            return res.send(toCsv(form, submissions));
+        }
+
         // Set headers for file download
         res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Disposition', `attachment; filename="${form.title.replace(/[^a-z0-9]/gi, '_')}_submissions.json"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}_submissions.json"`);
 
         res.json({
             form: {

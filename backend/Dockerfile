@@ -45,7 +45,6 @@ COPY prisma.config.ts ./
 
 # Copy source code
 COPY src ./src
-COPY index.js ./
 
 # Set ownership
 RUN chown -R nodejs:nodejs /app
@@ -62,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Start with dumb-init
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "index.js"]
+CMD ["node", "src/app.js"]

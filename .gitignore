@@ -2,7 +2,7 @@
 node_modules/
 .env
 .env.*
-
+CLAUDE.md
 # next
 .next/
 out/

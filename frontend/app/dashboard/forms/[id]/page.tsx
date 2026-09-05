@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { SubmissionTable } from '@/components/submissions/SubmissionTable';
+import { SubmissionsChart } from '@/components/submissions/SubmissionsChart';
 import { useAuth } from '@/context/AuthContext';
 import type { FormSchema, Submission } from '@/types/index';
 
@@ -63,6 +64,26 @@ async function getForm(id: string): Promise<FormDetail> {
     return (data as FormResponse).data.form;
 }
 
+async function downloadSubmissionsExport(formId: string, formTitle: string, format: 'json' | 'csv') {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/form/${formId}/export?format=${format}`, {
+        headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || data?.message || `HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${formTitle.toLowerCase().replace(/\s+/g, '-')}-submissions.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 async function getSubmissions(formId: string, page = 1, limit = 50): Promise<SubmissionsResponse['data']> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/form/${formId}/submissions?page=${page}&limit=${limit}`, {
@@ -91,6 +112,8 @@ export default function FormDetailPage() {
     const [activeTab, setActiveTab] = useState<TabType>('submissions');
     const [searchQuery, setSearchQuery] = useState('');
     const [copied, setCopied] = useState(false);
+    const [exportError, setExportError] = useState('');
+    const [isExporting, setIsExporting] = useState<'json' | 'csv' | null>(null);
 
     useEffect(() => {
         if (authLoading) return;
@@ -133,6 +156,19 @@ export default function FormDetailPage() {
         await navigator.clipboard.writeText(json);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleExportSubmissions = async (format: 'json' | 'csv') => {
+        if (!form) return;
+        setExportError('');
+        setIsExporting(format);
+        try {
+            await downloadSubmissionsExport(form.id, form.title, format);
+        } catch (err) {
+            setExportError(err instanceof Error ? err.message : 'Failed to export submissions');
+        } finally {
+            setIsExporting(null);
+        }
     };
 
     const handleDownload = () => {
@@ -207,7 +243,7 @@ export default function FormDetailPage() {
                             : 'border-transparent text-text-muted hover:text-text'
                             }`}
                     >
-                        Export JSON
+                        Form Schema
                     </button>
                 </nav>
             </div>
@@ -215,7 +251,18 @@ export default function FormDetailPage() {
             {/* Tab Content */}
             {activeTab === 'submissions' && (
                 <div>
-                    <div className="mb-4">
+                    {submissions.length > 0 && (
+                        <Card className="mb-4">
+                            <CardHeader>
+                                <h2 className="font-medium text-text">Submissions (last 14 days)</h2>
+                            </CardHeader>
+                            <CardBody>
+                                <SubmissionsChart submissions={submissions} />
+                            </CardBody>
+                        </Card>
+                    )}
+
+                    <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
                         <Input
                             type="text"
                             placeholder="Search submissions..."
@@ -223,7 +270,33 @@ export default function FormDetailPage() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="max-w-sm"
                         />
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                isLoading={isExporting === 'csv'}
+                                disabled={submissions.length === 0}
+                                onClick={() => handleExportSubmissions('csv')}
+                            >
+                                Export CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                isLoading={isExporting === 'json'}
+                                disabled={submissions.length === 0}
+                                onClick={() => handleExportSubmissions('json')}
+                            >
+                                Export JSON
+                            </Button>
+                        </div>
                     </div>
+
+                    {exportError && (
+                        <div className="mb-4 p-3 bg-error/20 border border-error rounded-lg text-error-text text-sm">
+                            {exportError}
+                        </div>
+                    )}
 
                     <Card>
                         <CardBody className="p-0">
